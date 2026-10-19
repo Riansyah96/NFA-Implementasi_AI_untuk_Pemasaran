@@ -1,0 +1,279 @@
+{
+  "name": "Invoice Otomatis - Form ke PDF ke Gmail",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Form Pembuatan Invoice",
+        "formDescription": "Isi data berikut untuk membuat dan mengirim invoice otomatis ke klien.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Nama Klien",
+              "placeholder": "PT Maju Jaya",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Jam Kerja",
+              "fieldType": "number",
+              "placeholder": "10",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Rate per Jam",
+              "fieldType": "number",
+              "placeholder": "150000",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email Klien",
+              "fieldType": "email",
+              "placeholder": "klien@email.com",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3a22ac7f-9dcc-48a2-be6f-138596145129",
+      "name": "On Form Submission",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "95b37c58-1734-42a9-9449-a049444bbdc3"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3f33ab91-a841-4930-afb4-eea553822b6f",
+              "name": "nomor_invoice",
+              "value": "={{ 'INV-' + $now.toFormat('yyyyLLdd-HHmmss') }}",
+              "type": "string"
+            },
+            {
+              "id": "0842e47f-21b2-4b3a-ae0c-b4f55a1ec08a",
+              "name": "tanggal_invoice",
+              "value": "={{ $now.setLocale('id').toFormat('dd LLLL yyyy') }}",
+              "type": "string"
+            },
+            {
+              "id": "23d44551-6f70-443b-8177-835d68dcdc4c",
+              "name": "nama_klien",
+              "value": "={{ $json['Nama Klien'] }}",
+              "type": "string"
+            },
+            {
+              "id": "66e3fa01-f2a6-488c-8e81-a6474e0f4809",
+              "name": "email_klien",
+              "value": "={{ $json['Email Klien'] }}",
+              "type": "string"
+            },
+            {
+              "id": "0ffb7c1a-7093-42fc-a0a7-2df399a3bbc0",
+              "name": "jam_kerja",
+              "value": "={{ Number($json['Jam Kerja']) }}",
+              "type": "number"
+            },
+            {
+              "id": "a5223832-9394-4d48-8118-174f8469a92f",
+              "name": "rate_per_jam",
+              "value": "={{ Number($json['Rate per Jam']) }}",
+              "type": "number"
+            },
+            {
+              "id": "6fc08ca0-62d7-44e7-9725-22329f2f1611",
+              "name": "total_biaya_angka",
+              "value": "={{ Number($json['Jam Kerja']) * Number($json['Rate per Jam']) }}",
+              "type": "number"
+            },
+            {
+              "id": "3ebbba40-04ae-46bd-b162-297c5433f631",
+              "name": "rate_format",
+              "value": "={{ new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number($json['Rate per Jam'])) }}",
+              "type": "string"
+            },
+            {
+              "id": "7e71efbb-5d47-44e0-a373-0b7cce8bfcc4",
+              "name": "total_biaya",
+              "value": "={{ new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(Number($json['Jam Kerja']) * Number($json['Rate per Jam'])) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "453ce979-3568-40a4-a887-d566443006a3",
+      "name": "Edit Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "html": "<!DOCTYPE html>\n<html lang='id'>\n<head>\n<meta charset='UTF-8'>\n<title>{{ $json.nomor_invoice }}</title>\n<style>\n  body { font-family: Arial, Helvetica, sans-serif; color: #222; margin: 0; padding: 40px; font-size: 14px; }\n  .header { display: table; width: 100%; border-bottom: 3px solid #1f4e79; padding-bottom: 16px; margin-bottom: 28px; }\n  .header .left, .header .right { display: table-cell; vertical-align: top; }\n  .header .right { text-align: right; }\n  h1 { margin: 0; color: #1f4e79; font-size: 32px; letter-spacing: 2px; }\n  .muted { color: #666; }\n  .box { background: #f4f7fa; padding: 14px 18px; border-radius: 6px; margin-bottom: 28px; }\n  table { width: 100%; border-collapse: collapse; }\n  th { background: #1f4e79; color: #fff; text-align: left; padding: 10px; }\n  td { padding: 10px; border-bottom: 1px solid #ddd; }\n  .num { text-align: right; }\n  .total td { border-bottom: none; font-size: 16px; font-weight: bold; background: #eaf1f8; }\n  .footer { margin-top: 48px; text-align: center; color: #888; font-size: 12px; }\n</style>\n</head>\n<body>\n  <div class='header'>\n    <div class='left'>\n      <h1>INVOICE</h1>\n      <div class='muted'>Jasa Profesional</div>\n    </div>\n    <div class='right'>\n      <div><strong>{{ $json.nomor_invoice }}</strong></div>\n      <div class='muted'>Tanggal: {{ $json.tanggal_invoice }}</div>\n    </div>\n  </div>\n\n  <div class='box'>\n    <div class='muted'>Ditagihkan kepada:</div>\n    <div style='font-size:18px; font-weight:bold;'>{{ $json.nama_klien }}</div>\n    <div class='muted'>{{ $json.email_klien }}</div>\n  </div>\n\n  <table>\n    <thead>\n      <tr>\n        <th>Deskripsi</th>\n        <th class='num'>Jam Kerja</th>\n        <th class='num'>Rate per Jam</th>\n        <th class='num'>Subtotal</th>\n      </tr>\n    </thead>\n    <tbody>\n      <tr>\n        <td>Jasa profesional</td>\n        <td class='num'>{{ $json.jam_kerja }} jam</td>\n        <td class='num'>{{ $json.rate_format }}</td>\n        <td class='num'>{{ $json.total_biaya }}</td>\n      </tr>\n      <tr class='total'>\n        <td colspan='3' class='num'>TOTAL BIAYA</td>\n        <td class='num'>{{ $json.total_biaya }}</td>\n      </tr>\n    </tbody>\n  </table>\n\n  <div class='footer'>Terima kasih atas kepercayaan Anda. Mohon lakukan pembayaran sesuai nominal di atas.</div>\n</body>\n</html>"
+      },
+      "id": "dea2121d-3526-4470-b88f-3b33ee58cfb9",
+      "name": "HTML",
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.pdfshift.io/v3/convert/pdf",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ source: $json.html, format: 'A4', margin: '10mm' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "159ff560-a30e-46a3-b56d-ad9aa9ce1cc8",
+      "name": "HTML to PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        672,
+        0
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "XSHGyrxjYgSlsfor",
+          "name": "Unnamed credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const inv = $('Edit Fields').item.json;\nconst binary = $input.item.binary;\n\nbinary.data.fileName = `${inv.nomor_invoice}.pdf`;\nbinary.data.mimeType = 'application/pdf';\nbinary.data.fileExtension = 'pdf';\n\nreturn { json: { ...inv }, binary };"
+      },
+      "id": "6a28ea01-0283-4f35-8e81-9a8eadc342e4",
+      "name": "Beri Nama File PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email_klien }}",
+        "subject": "=Invoice {{ $json.nomor_invoice }} - {{ $json.nama_klien }}",
+        "message": "=<div style='font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #222;'>\n<p>Halo <strong>{{ $json.nama_klien }}</strong>,</p>\n<p>Terima kasih telah menggunakan jasa kami. Berikut kami lampirkan invoice <strong>{{ $json.nomor_invoice }}</strong> dalam format PDF.</p>\n<ul>\n  <li>Jam kerja: {{ $json.jam_kerja }} jam</li>\n  <li>Rate per jam: {{ $json.rate_format }}</li>\n  <li>Total biaya: <strong>{{ $json.total_biaya }}</strong></li>\n</ul>\n<p>Jika ada pertanyaan terkait tagihan ini, silakan balas email ini kapan saja.</p>\n<p>Salam hangat,<br>Tim Kami</p>\n</div>",
+        "options": {
+          "appendAttribution": false,
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {}
+            ]
+          }
+        }
+      },
+      "id": "0bf245f7-0bc2-414d-9f50-4ffd4197cab7",
+      "name": "Send Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1120,
+        0
+      ],
+      "webhookId": "5c180c45-7448-49db-ac55-8fdd9f237376",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "5fgU311QIzGVRHbh",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On Form Submission": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML": {
+      "main": [
+        [
+          {
+            "node": "HTML to PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML to PDF": {
+      "main": [
+        [
+          {
+            "node": "Beri Nama File PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Beri Nama File PDF": {
+      "main": [
+        [
+          {
+            "node": "Send Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "d70bd459-731e-465c-966b-63efd66ae8e0",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dc96f10ae7dc95d3c138575ba243a0a167923dbcb524841d451aadf9135d5fb3"
+  },
+  "nodeGroups": [],
+  "id": "mM9N8z5PVW7V6Tl2",
+  "tags": []
+}
