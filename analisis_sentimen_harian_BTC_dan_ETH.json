@@ -1,0 +1,526 @@
+{
+  "name": "Analisis Sentimen Harian BTC ETH (RSS + Gemini)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "ea923460-ee6e-4096-97a5-04eb529946f6",
+      "name": "Tiap 15 Menit",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://news.google.com/rss/search?q=%24BTC+OR+%24ETH+OR+bitcoin+OR+ethereum+when:1d&hl=en-US&gl=US&ceid=US:en",
+        "options": {}
+      },
+      "id": "e6ad05a9-028b-4448-ba26-3316ca8bd6e9",
+      "name": "RSS Pengambil Data",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        224,
+        112
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "operation": "removeItemsSeenInPreviousExecutions",
+        "dedupeValue": "={{ $json.guid || $json.link }}",
+        "options": {}
+      },
+      "id": "1d5961df-0bf3-40dc-bfce-86ab1e06aaee",
+      "name": "Hapus Duplikat",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        672,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze the sentiment of the following crypto news headline about $BTC / $ETH. Respond ONLY with ONE word: 'Positive', 'Negative', or 'Neutral'.\n\nHeadline:\n{{ $json.title }}"
+      },
+      "id": "4206aed1-47ab-467b-900b-f59ee1c5a85e",
+      "name": "Analisis Sentimen",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [
+        896,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {
+          "temperature": 0
+        }
+      },
+      "id": "1d6fe3f0-720e-482e-b2d1-5966d82140ad",
+      "name": "Gemini Chat Model (Sentimen)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        968,
+        232
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "v3yn8imcq9Tsoh3l",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "Waktu",
+              "value": "={{ new Date($('Hapus Duplikat').item.json.isoDate || $('Hapus Duplikat').item.json.pubDate).toISOString() }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "ID",
+              "value": "={{ $('Hapus Duplikat').item.json.guid || $('Hapus Duplikat').item.json.link }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "Teks",
+              "value": "={{ $('Hapus Duplikat').item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "Sentiment",
+              "value": "={{ ['Positive','Negative','Neutral'].find(s => String($json.text).toLowerCase().includes(s.toLowerCase())) || 'Neutral' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ef02cfd0-d4f9-4832-b98c-2306ff200717",
+      "name": "Rapikan Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1248,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "11nPvW_lWwM1eARFOHrB-7GX0MDFNgtikxz-a0iSQkOQ",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "DATA MENTAH",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/11nPvW_lWwM1eARFOHrB-7GX0MDFNgtikxz-a0iSQkOQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Waktu",
+              "displayName": "Waktu",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ID",
+              "displayName": "ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Teks",
+              "displayName": "Teks",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Sentiment",
+              "displayName": "Sentiment",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "23385c7e-49ec-4b1d-8427-c47a79f63bbe",
+      "name": "Simpan ke Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1472,
+        112
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "8DtHFTKjIWMp5G1p",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "5ebfe4ae-5593-4920-b5e1-03a36955f8ee",
+      "name": "Tiap Jam 7 Pagi",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "11nPvW_lWwM1eARFOHrB-7GX0MDFNgtikxz-a0iSQkOQ",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "DATA MENTAH",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/11nPvW_lWwM1eARFOHrB-7GX0MDFNgtikxz-a0iSQkOQ/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "9fd377db-b62c-4e45-8f74-1440fb912cab",
+      "name": "Baca Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        544
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "8DtHFTKjIWMp5G1p",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json);\nconst cutoff = Date.now() - 24 * 60 * 60 * 1000;\n\nlet positive = 0, negative = 0, neutral = 0;\n\nfor (const r of rows) {\n  const t = new Date(r['Waktu']).getTime();\n  if (isNaN(t) || t < cutoff) continue; // hanya data 24 jam terakhir\n  const s = String(r['Sentiment'] || '').trim().toLowerCase();\n  if (s === 'positive') positive++;\n  else if (s === 'negative') negative++;\n  else if (s === 'neutral') neutral++;\n}\n\nconst total = positive + negative + neutral;\nconst pct = n => total ? Number((n / total * 100).toFixed(1)) : 0;\n\nconst counts = { Positif: positive, Negatif: negative, Netral: neutral };\nconst dominan = total\n  ? Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]\n  : 'Tidak ada data';\n\nreturn [{\n  json: {\n    total, positive, negative, neutral,\n    pct_positive: pct(positive),\n    pct_negative: pct(negative),\n    pct_neutral: pct(neutral),\n    dominan\n  }\n}];"
+      },
+      "id": "c4c96560-7917-4b2f-ad39-239d1e2eb232",
+      "name": "Analisis Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Kamu adalah analis sentimen media sosial kripto. Berdasarkan statistik sentimen $BTC dan $ETH dari 24 jam terakhir berikut, tulis kesimpulan dalam Bahasa Indonesia.\n\nData:\n- Total post: {{ $json.total }}\n- Positif: {{ $json.positive }} ({{ $json.pct_positive }}%)\n- Netral: {{ $json.neutral }} ({{ $json.pct_neutral }}%)\n- Negatif: {{ $json.negative }} ({{ $json.pct_negative }}%)\n- Dominan: {{ $json.dominan }}\n\nATURAN FORMAT (wajib diikuti persis):\nKONDISI: <1-2 kalimat tentang sentimen yang dominan dan artinya secara kualitatif>\nCATATAN: <1-2 kalimat tentang hal yang perlu dicermati pelaku pasar>\n\nJangan mengulang angka persentase secara lengkap, jangan memakai markdown, emoji, atau salam pembuka. Jangan menambahkan teks selain dua bagian di atas. Jangan mengarang data di luar angka yang diberikan."
+      },
+      "id": "670c3169-7d97-4a8c-be74-15cd31fa7adf",
+      "name": "Membuat Kesimpulan",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.5,
+      "position": [
+        672,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "2c04a05f-17b8-4a81-a635-b80a48a4b891",
+      "name": "Gemini Chat Model (Kesimpulan)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        744,
+        760
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "v3yn8imcq9Tsoh3l",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "7391328305",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "2b6b403d-157e-4ba1-8a1c-6149cee8732f",
+      "name": "Kirim Laporan",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1248,
+        544
+      ],
+      "webhookId": "1a407632-2533-45ff-9a95-6ef7eadf2c8e",
+      "credentials": {
+        "telegramApi": {
+          "id": "x4DYvjKMmwyKB2S3",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "maxItems": 10
+      },
+      "id": "8f8fe65f-e82d-41ec-aa54-8cc8cb1cf63c",
+      "name": "Batasi 10 Item",
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        448,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loop over input items and add a new field called 'myNewField' to the JSON of each one\nconst s = $('Analisis Data').first().json;\nconst raw = String($json.text || '').trim();\n\nconst esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst bar = p => {\n  const n = Math.round(p / 10);\n  return '█'.repeat(n) + '░'.repeat(10 - n);\n};\nconst row = (icon, label, n, p) => `${icon} <b>${label}</b>\\n<code>${bar(p)}</code> ${p}% (${n} post)`;\n\nconst tanggal = new Date().toLocaleDateString('id-ID', {\n  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta'\n});\n\nlet msg = `📊 <b>LAPORAN SENTIMEN HARIAN</b>\\n<b>$BTC &amp; $ETH</b>\\n🗓 ${tanggal} • 07.00 WIB\\n⏱ Periode: 24 jam terakhir\\n\\n━━━━━━━━━━━━━━\\n`;\n\nif (!s.total) {\n  msg += `\\nBelum ada data sentimen dalam 24 jam terakhir.\\n`;\n} else {\n  const icon = { Positif: '🟢', Negatif: '🔴', Netral: '⚪' }[s.dominan] || '❔';\n  const maxPct = Math.max(s.pct_positive, s.pct_neutral, s.pct_negative);\n\n  const kondisi = (raw.match(/KONDISI:\\s*([\\s\\S]*?)(?=CATATAN:|$)/i) || [])[1];\n  const catatan = (raw.match(/CATATAN:\\s*([\\s\\S]*)/i) || [])[1];\n\n  msg += `<b>📈 DISTRIBUSI SENTIMEN</b>\\nTotal dianalisis: <b>${s.total}</b> post\\n\\n`;\n  msg += row('🟢', 'Positif', s.positive, s.pct_positive) + '\\n\\n';\n  msg += row('⚪', 'Netral', s.neutral, s.pct_neutral) + '\\n\\n';\n  msg += row('🔴', 'Negatif', s.negative, s.pct_negative) + '\\n\\n';\n  msg += `🏆 <b>Dominan:</b> ${icon} ${s.dominan} (${maxPct}%)\\n\\n━━━━━━━━━━━━━━\\n<b>🧠 KESIMPULAN</b>\\n`;\n\n  if (kondisi && catatan) {\n    msg += `\\n<b>Kondisi pasar</b>\\n${esc(kondisi.trim())}\\n\\n<b>Yang perlu dicermati</b>\\n${esc(catatan.trim())}`;\n  } else {\n    msg += `\\n${esc(raw)}`;\n  }\n}\n\nmsg += `\\n\\n━━━━━━━━━━━━━━\\n<i>⚠️ Bukan saran keuangan. Data dari headline berita kripto.</i>`;\n\nreturn [{ json: { message: msg } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        544
+      ],
+      "id": "029ad9cc-4770-4798-b103-34ddbf4ed5f5",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Tiap 15 Menit": {
+      "main": [
+        [
+          {
+            "node": "RSS Pengambil Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hapus Duplikat": {
+      "main": [
+        [
+          {
+            "node": "Analisis Sentimen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Chat Model (Sentimen)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analisis Sentimen",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analisis Sentimen": {
+      "main": [
+        [
+          {
+            "node": "Rapikan Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rapikan Data": {
+      "main": [
+        [
+          {
+            "node": "Simpan ke Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tiap Jam 7 Pagi": {
+      "main": [
+        [
+          {
+            "node": "Baca Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baca Data": {
+      "main": [
+        [
+          {
+            "node": "Analisis Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analisis Data": {
+      "main": [
+        [
+          {
+            "node": "Membuat Kesimpulan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Chat Model (Kesimpulan)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Membuat Kesimpulan",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Membuat Kesimpulan": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Pengambil Data": {
+      "main": [
+        [
+          {
+            "node": "Batasi 10 Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batasi 10 Item": {
+      "main": [
+        [
+          {
+            "node": "Hapus Duplikat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Kirim Laporan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "6575fe75-9748-4fa7-8a59-353ae841be96",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dc96f10ae7dc95d3c138575ba243a0a167923dbcb524841d451aadf9135d5fb3"
+  },
+  "nodeGroups": [],
+  "id": "LS2SmqElGb00wepY",
+  "tags": []
+}

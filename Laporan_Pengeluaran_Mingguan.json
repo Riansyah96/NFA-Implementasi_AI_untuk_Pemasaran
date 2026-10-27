@@ -1,0 +1,254 @@
+{
+  "name": "Laporan Pengeluaran Mingguan",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [
+                0
+              ],
+              "triggerAtHour": 7,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "b2000000-0000-4000-8000-000000000001",
+      "name": "Setiap Hari Minggu",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "GANTI_DENGAN_ID_SPREADSHEET"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Sheet1"
+        },
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000002",
+      "name": "Ambil Log Pengeluaran",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        240,
+        200
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ambil semua baris dari Google Sheets\nconst items = $input.all();\n\n// Rentang waktu: 7 hari lalu (00:00:00) sampai hari ini (23:59:59)\nconst today = new Date();\ntoday.setHours(23, 59, 59, 999);\nconst sevenDaysAgo = new Date(today);\nsevenDaysAgo.setDate(today.getDate() - 7);\nsevenDaysAgo.setHours(0, 0, 0, 0);\n\n// Ambil nilai kolom dengan beberapa kemungkinan nama header (tidak peka huruf besar/kecil)\nconst pick = (obj, names) => {\n  const keys = Object.keys(obj);\n  for (const n of names) {\n    const k = keys.find((k) => k.trim().toLowerCase() === n);\n    if (k !== undefined && obj[k] !== '' && obj[k] != null) return obj[k];\n  }\n  return '';\n};\n\n// Sheet memakai format DD/MM/YYYY -> harus di-parse manual agar tidak salah baca\nconst parseDate = (raw) => {\n  const s = String(raw).trim();\n  const m = s.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})/);\n  if (m) {\n    const [day, month, year] = [Number(m[1]), Number(m[2]), Number(m[3])];\n    return new Date(year, month - 1, day);\n  }\n  const d = new Date(s); // cadangan: format ISO (YYYY-MM-DD)\n  return isNaN(d.getTime()) ? null : d;\n};\n\n// Jumlah bisa berupa angka atau teks seperti \"Rp 25.000\"\nconst parseAmount = (raw) => {\n  if (typeof raw === 'number') return raw;\n  const digits = String(raw).replace(/[^0-9]/g, '');\n  return digits ? Number(digits) : 0;\n};\n\nconst rupiah = (n) => String(n).replace(/\\B(?=(\\d{3})+(?!\\d))/g, '.');\n\n// Filter 7 hari terakhir\nconst rows = [];\nfor (const item of items) {\n  const rawDate = pick(item.json, ['tanggal', 'date', 'rawdate']);\n  if (!rawDate) continue;\n  const expenseDate = parseDate(rawDate);\n  if (!expenseDate) continue;\n\n  if (expenseDate >= sevenDaysAgo && expenseDate <= today) {\n    rows.push({\n      expenseDate,\n      rawDate: String(rawDate),\n      kategori: pick(item.json, ['kategori', 'category']) || '-',\n      deskripsi: pick(item.json, ['deskripsi', 'keterangan', 'description']) || '-',\n      metode: pick(item.json, ['metode', 'metode pembayaran', 'payment method', 'method']) || '-',\n      penerima: pick(item.json, ['penerima', 'merchant', 'toko']) || '-',\n      jumlah: parseAmount(pick(item.json, ['jumlah', 'nominal', 'amount', 'total'])),\n    });\n  }\n}\nrows.sort((a, b) => a.expenseDate - b.expenseDate);\n\n// Format teks untuk AI\nlet formattedString = '📊 Data pengeluaran saya 7 hari terakhir:\\n';\nlet total = 0;\nfor (const r of rows) {\n  total += r.jumlah;\n  formattedString +=\n    ` - ${r.rawDate} | ${r.kategori}\\n` +\n    `   ${r.deskripsi}\\n` +\n    `   Metode: ${r.metode}\\n` +\n    `   Penerima: ${r.penerima}\\n` +\n    `   💸 Rp${rupiah(r.jumlah)}\\n\\n`;\n}\nformattedString += `Total: Rp${rupiah(total)} (${rows.length} transaksi)`;\n\nconst hasExpenses = rows.length > 0;\n\nreturn [{\n  json: {\n    hasExpenses,\n    count: rows.length,\n    total,\n    totalFormatted: rupiah(total),\n    promptData: hasExpenses ? formattedString : '',\n  },\n}];"
+      },
+      "id": "b2000000-0000-4000-8000-000000000003",
+      "name": "Filter 7 Hari & Format Teks",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c2000000-0000-4000-8000-000000000001",
+              "leftValue": "={{ $json.hasExpenses }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b2000000-0000-4000-8000-000000000004",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "GANTI_DENGAN_CHAT_ID",
+        "text": "📭 Nihil: Tidak ditemukan log pengeluaran untuk 7 hari terakhir. Tidak ada analisis AI yang dibuat.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "b2000000-0000-4000-8000-000000000005",
+      "name": "Pesan False",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        980,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.promptData }}\n\n---\nInstruksi: Tulis ringkasan kebiasaan belanja saya minggu ini (sebutkan kategori dengan pengeluaran terbesar, pola yang menonjol, dan total pengeluaran), lalu beri tepat 1 saran penghematan yang konkret, spesifik, dan bisa langsung dilakukan minggu depan berdasarkan data di atas. Maksimal 150 kata.",
+        "hasOutputParser": false,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Kamu adalah asisten keuangan pribadi yang ramah, ringkas, dan praktis. Tugasmu menganalisis catatan pengeluaran mingguan pengguna dan memberi saran yang realistis. Gunakan Bahasa Indonesia. Tulis dalam teks biasa tanpa format markdown atau HTML (jangan pakai tanda bintang, garis bawah, pagar, atau tanda kurung siku/sudut)."
+            }
+          ]
+        }
+      },
+      "id": "b2000000-0000-4000-8000-000000000006",
+      "name": "Analisis",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        980,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-flash",
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "b2000000-0000-4000-8000-000000000007",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "GANTI_DENGAN_CHAT_ID",
+        "text": "=📊 Laporan Pengeluaran Mingguan\n\n💰 Total 7 hari terakhir: Rp{{ $('Filter 7 Hari & Format Teks').item.json.totalFormatted }} ({{ $('Filter 7 Hari & Format Teks').item.json.count }} transaksi)\n\n{{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "b2000000-0000-4000-8000-000000000008",
+      "name": "Pesan True",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1340,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Setiap Hari Minggu": {
+      "main": [
+        [
+          {
+            "node": "Ambil Log Pengeluaran",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ambil Log Pengeluaran": {
+      "main": [
+        [
+          {
+            "node": "Filter 7 Hari & Format Teks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter 7 Hari & Format Teks": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Analisis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pesan False",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analisis",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analisis": {
+      "main": [
+        [
+          {
+            "node": "Pesan True",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Jakarta"
+  }
+}
